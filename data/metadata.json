@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-02T02:37+09:00",
+  "updated_at": "2026-11-01T17:54+00:00",
   "medical_data_as_of": "20260601",
   "medical_aid_as_of": "20140331",
   "count": 203905,
@@ -193,7 +193,7 @@
       "page": "https://www.pref.toyama.lg.jp/1200/kurashi/kenkou/fukushi/kj00018645.html",
       "status": "取得失敗",
       "records": 0,
-      "error": "HTTPSConnectionPool(host='www.pref.toyama.lg.jp', port=443): Max retries exceeded with url: /1200/kurashi/kenkou/fukushi/kj00018645.html (Caused by SSLError(SSLCertVerificationError(1, \"[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid for 'www.pref.toyama.lg.jp'. (_ssl.c:1082)\")))",
+      "error": "HTTPSConnectionPool(host='www.pref.toyama.lg.jp', port=443): Max retries exceeded with url: /1200/kurashi/kenkou/fukushi/kj00018645.html (Caused by SSLError(SSLCertVerificationError(1, \"[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: Hostname mismatch, certificate is not valid for 'www.pref.toyama.lg.jp'. (_ssl.c:1010)\")))",
       "scope": "県所管区域"
     },
     {
