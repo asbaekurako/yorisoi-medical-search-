@@ -4,7 +4,7 @@
 The MHLW open-data release is periodic (not daily). This job runs daily, checks the
 source page, and refreshes data when a new release is published.
 """
-import csv, io, json, re, zipfile, hashlib, unicodedata
+import csv, io, json, re, zipfile, hashlib, unicodedata, tempfile, os, tempfile, os
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
@@ -12,7 +12,7 @@ import requests
 from bs4 import BeautifulSoup
 
 ROOT=Path(__file__).resolve().parents[1]
-OUT=ROOT/'data'/'facilities.json'
+OUT=ROOT/'data'/'facilities'
 MED_PAGE='https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryou/newpage_43373.html'
 AID_PAGE='https://www.mhlw.go.jp/stf/newpage_25108.html'
 HEADERS={'User-Agent':'YorisoiMedicalSearch/1.0 (public-data research; contact via repository issues)'}
@@ -27,22 +27,58 @@ def pick(row, patterns):
         if any(p in key for p in patterns) and clean(v): return clean(v)
     return ''
 def read_csv_bytes(raw):
-    # Accept UTF-8 BOM, UTF-8, CP932 and common MHLW ZIP/CSV variants.
+    # CSVを行単位で読み込み、全行をメモリに保持しない
     for enc in ('utf-8-sig','cp932','utf-8'):
         try:
-            txt=raw.decode(enc)
-            sample=txt[:8192]
-            try: dialect=csv.Sniffer().sniff(sample, delimiters=',\t;')
-            except csv.Error: dialect=csv.excel
-            return list(csv.DictReader(io.StringIO(txt),dialect=dialect))
-        except UnicodeDecodeError: continue
-    return []
+            text = raw.decode(enc)
+            sample = text[:8192]
+            try:
+                dialect = csv.Sniffer().sniff(sample, delimiters=',\\t;')
+            except csv.Error:
+                dialect = csv.excel
+            return csv.DictReader(io.StringIO(text), dialect=dialect)
+        except UnicodeDecodeError:
+            continue
+    return iter(())
+
 def files_from_zip(url):
-    raw=get(url).content
-    with zipfile.ZipFile(io.BytesIO(raw)) as z:
-        for name in z.namelist():
-            if name.lower().endswith('.csv'):
-                yield name,read_csv_bytes(z.read(name))
+    print("  ダウンロード開始:", url.split("/")[-1], flush=True)
+    with tempfile.NamedTemporaryFile(prefix="yorisoi_", suffix=".zip") as tmp:
+        with requests.get(url, headers=HEADERS, timeout=90, stream=True) as response:
+            response.raise_for_status()
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    tmp.write(chunk)
+        tmp.flush()
+        print("  ダウンロード完了:", tmp.tell(), "bytes", flush=True)
+        with zipfile.ZipFile(tmp.name) as z:
+            for name in z.namelist():
+                if name.lower().endswith(".csv"):
+                    print("  CSV読み込み開始:", name, flush=True)
+                    with z.open(name) as raw:
+                        sample = raw.read(8192)
+                        encoding = "utf-8-sig"
+                        for enc in ("utf-8-sig", "cp932", "utf-8"):
+                            try:
+                                sample.decode(enc)
+                                encoding = enc
+                                break
+                            except UnicodeDecodeError:
+                                continue
+                        try:
+                            dialect = csv.Sniffer().sniff(
+                                sample.decode(encoding, errors="replace"),
+                                delimiters=",\\t;"
+                            )
+                        except csv.Error:
+                            dialect = csv.excel
+                        raw.seek(0)
+                        import io
+                        with io.TextIOWrapper(raw, encoding=encoding, errors="replace", newline="") as text:
+                            rows = csv.DictReader(text, dialect=dialect)
+                            yield name, rows
+                    print("  CSV読み込み完了:", name, flush=True)
+
 def find_links(page_url, prefix):
     soup=BeautifulSoup(get(page_url).text,'html.parser')
     out=[]
@@ -120,7 +156,7 @@ def designation_rows_from_source(source):
             for row in rows:
                 # Avoid parsing PDF free text as a confirmed designation without robust tabular extraction.
                 if '__pdf_line__' in row: continue
-                name=pick(row,['医療機関名','施設名称','病院名','診療所名','歯科診療所名','薬局名','名称'])
+                name=pick(row,['正式名称','施設名称','医療機関名','薬局名','名称'])
                 addr=pick(row,['所在地','住所','医療機関所在地'])
                 code=pick(row,['医療機関コード','医療機関番号','薬局コード','機関コード'])
                 kind=''
@@ -136,11 +172,12 @@ def designation_rows_from_source(source):
 
 def main():
     med_links=find_links(MED_PAGE,'/content/')
-    # Current MHLW page uses predictable English filenames. Keep facility sheets and specialty/hour sheets.
-    records={}; specialty={}; asof='不明'; downloaded=[]
+    dates=[re.search(r'(20\d{6})',url).group(1) for label,url in med_links if re.search(r'(20\d{6})',url)]
+    latest_date=max(dates) if dates else ''
+    med_links=[(label,url) for label,url in med_links if latest_date and latest_date in url]
+    records={}; specialty={}; asof=latest_date or '不明'; downloaded=[]
+    print('医療情報ネットの最新データ:', asof, '対象ファイル:', len(med_links), flush=True)
     for label,url in med_links:
-        m=re.search(r'(20\d{6})',url)
-        if m: asof=m.group(1)
         low=url.lower()
         kind=''
         if 'hospital_facility' in low: kind='病院'
@@ -154,15 +191,15 @@ def main():
         for fname,rows in files_from_zip(url):
             downloaded.append(url)
             for row in rows:
-                code=pick(row,['医療機関コード','薬局コード','施設コード','機関コード','医療機関番号'])
-                name=pick(row,['施設名称','医療機関名','薬局名','名称'])
+                code=pick(row,['ID','医療機関コード','薬局コード','施設コード','機関コード','医療機関番号'])
+                name=pick(row,['正式名称','施設名称','医療機関名','薬局名','名称'])
                 addr=pick(row,['所在地','住所'])
                 phone=pick(row,['電話番号','連絡先電話'])
-                dept=pick(row,['診療科名','診療科目','標榜科'])
+                dept=clean(row.get('診療科目名',''))
                 hours=pick(row,['診療時間','受付時間','開店時間','営業時間'])
                 pref=pick(row,['都道府県名','都道府県'])
                 city=pick(row,['市区町村名','市区町村'])
-                website=pick(row,['ホームページ','URL','ウェブサイト'])
+                website=pick(row,['案内用ホームページアドレス','ホームページ','URL','ウェブサイト'])
                 key=code or norm(name+'|'+addr)
                 if not key: continue
                 if any(x in low for x in ('speciality','hours')):
@@ -175,6 +212,7 @@ def main():
         if key in records:
             if s['departments']: records[key]['departments']='、'.join(sorted(s['departments']))
             if s['hours']: records[key]['hours']='／'.join(sorted(s['hours']))
+    print('施設データ読み込み完了:', len(records), '件', flush=True)
     # Online eligibility participation list is NOT the same as statutory designation.
     aid_links=find_links(AID_PAGE,'/content/')
     aid_url=next((u for _,u in aid_links if 'csv' in u.lower()),None)
@@ -184,25 +222,72 @@ def main():
         m=re.search(r'(20\d{6})',get(AID_PAGE).text)
         if m: aid_asof=m.group(1)
         aid_rows=read_csv_bytes(raw)
-    aid_codes=set(); aid_names=set()
+    aid_by_pref_name={}
+    aid_row_count=0
     for row in aid_rows:
-        code=pick(row,['医療機関コード','薬局コード','施設コード','機関コード'])
-        name=pick(row,['医療機関名','薬局名','施設名称','名称'])
-        if code: aid_codes.add(code)
-        if name: aid_names.add(norm(name))
+        aid_row_count += 1
+        pref=pick(row,['都道府県名'])
+        code=pick(row,['医療機関等コード'])
+        name=pick(row,['医療機関名称（漢字）'])
+        start=pick(row,['医療扶助オンライン資格確認の運用開始日'])
+        if pref and name and code:
+            key=(pref,norm(name))
+            aid_by_pref_name.setdefault(key,[]).append({
+                'code':code,
+                'start_date':start
+            })
+
+    pref_names=[
+        '北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県',
+        '茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県',
+        '新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県',
+        '静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県',
+        '奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県',
+        '徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県',
+        '熊本県','大分県','宮崎県','鹿児島県','沖縄県'
+    ]
+
     for x in records.values():
-        if x['id'] in aid_codes or norm(x['name']) in aid_names:
+        address=x.get('address','')
+        pref=next((v for v in pref_names if address.startswith(v)),None)
+        matches=aid_by_pref_name.get((pref,norm(x.get('name'))),[]) if pref else []
+        x['aid_match_count']=len(matches)
+        x['aid_code']=''
+        x['aid_start_date']=''
+        if len(matches)==1:
             x['aid_status']='参加確認済み'
+            x['aid_code']=matches[0]['code']
+            x['aid_start_date']=matches[0]['start_date']
+        elif len(matches)>1:
+            x['aid_status']='要確認'
+        else:
+            x['aid_status']='未確認'
+    print('オンライン資格確認データ読み込み完了', flush=True)
     # Statutory designation sources: separate from the online eligibility participation list.
     registry=json.loads((ROOT/'data'/'designation_sources.json').read_text(encoding='utf-8'))
     designation_rows=[]; source_audits=[]
+    cache_dir=ROOT/'data'/'designation_cache'
+    cache_dir.mkdir(parents=True, exist_ok=True)
     for source in registry.get('sources',[]):
+        sid=source['id']
+        cache_file=cache_dir/(sid+'.json')
+        print('指定名簿確認中:', source.get('authority', sid), flush=True)
         try:
-            rows=designation_rows_from_source(source)
+            if cache_file.exists():
+                rows=json.loads(cache_file.read_text(encoding='utf-8'))
+                print('  キャッシュ利用:', len(rows), '件', flush=True)
+            else:
+                print('  名簿取得開始', flush=True)
+                rows=designation_rows_from_source(source)
+                tmp=cache_file.with_suffix('.json.tmp')
+                tmp.write_text(json.dumps(rows,ensure_ascii=False),encoding='utf-8')
+                tmp.replace(cache_file)
+                print('  取得・保存完了:', len(rows), '件', flush=True)
             designation_rows.extend(rows)
-            source_audits.append({'id':source['id'],'authority':source['authority'],'page':source['page'],'status':'取得成功' if rows else 'ページ取得済み・構造化名簿未抽出','records':len(rows),'scope':source['scope'],'note':source.get('note','')})
+            source_audits.append({'id':sid,'authority':source['authority'],'page':source['page'],'status':'取得成功' if rows else 'ページ取得済み・構造化名簿未抽出','records':len(rows),'scope':source['scope'],'note':source.get('note','')})
         except Exception as e:
-            source_audits.append({'id':source['id'],'authority':source['authority'],'page':source['page'],'status':'取得失敗','records':0,'error':str(e),'scope':source.get('scope','')})
+            print('  指定名簿取得失敗:', sid, repr(e), flush=True)
+            source_audits.append({'id':sid,'authority':source['authority'],'page':source['page'],'status':'取得失敗','records':0,'error':str(e),'scope':source.get('scope','')})
     # Build conservative exact/near-exact lookup keys. A name-only match is labelled as a match
     # candidate; exact code match is preferred. Conflicting duplicate names are not auto-confirmed.
     by_code={}; by_name={}
@@ -241,7 +326,67 @@ def main():
     all_prefectures=['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県']
     covered_pref={s.get('prefecture') for s in registry.get('sources',[])}
     coverage={'coverage_status':'partial','registered_source_pages':len(registry.get('sources',[])),'prefectures_with_registered_sources':sorted(x for x in covered_pref if x),'prefecture_count_with_sources':len(covered_pref),'prefectures_without_any_registered_source':[p for p in all_prefectures if p not in covered_pref],'designation_records_downloaded':len(designation_rows),'confirmed_facilities':confirmed,'candidate_facilities':candidates,'jurisdiction_warning':'都道府県名簿が登録済みでも、政令指定都市・中核市等が独自に指定する区域を含むとは限りません。各自治体の管轄境界まで照合できた場合に限り、その区域を網羅済みとして扱います。','coverage_warning':'全国完全網羅ではありません。未登録自治体・独自管轄市・PDF画像名簿・公開されていない名簿は未確認のまま表示します。未確認を指定なしと判定しません。'}
-    payload={'updated_at':datetime.now(timezone.utc).astimezone().isoformat(timespec='minutes'),'medical_data_as_of':asof,'medical_aid_as_of':aid_asof,'count':len(records),'facilities':list(records.values()),'designation_index':designation_rows,'designation_coverage':coverage,'designation_sources_audit':source_audits,'designation_records_count':len(designation_rows),'sources':{'medical_information_network':MED_PAGE,'medical_aid_online_eligibility':AID_PAGE,'designation_registry':'data/designation_sources.json'},'notice':'ブラウザ側でも指定名簿データを自動照合します。オンライン資格確認参加は生活保護法上の指定医療機関であることを意味しません。自治体の公式指定名簿と照合できない施設は未確認です。'}
-    OUT.parent.mkdir(exist_ok=True); OUT.write_text(json.dumps(payload,ensure_ascii=False),encoding='utf-8')
-    print(f'Wrote {len(records)} facilities; aid list rows={len(aid_rows)}; medical release={asof}')
+
+    prefectures = [
+        '北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県',
+        '茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県',
+        '新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県',
+        '静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県',
+        '奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県',
+        '徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県',
+        '熊本県','大分県','宮崎県','鹿児島県','沖縄県'
+    ]
+    pref_codes = {name: f'{i:02d}' for i, name in enumerate(prefectures, 1)}
+    grouped = {code: [] for code in pref_codes.values()}
+    unknown = []
+
+    for x in records.values():
+        pref = x.get('prefecture', '')
+        code = pref_codes.get(pref)
+        if not code:
+            addr = x.get('address', '')
+            code = next((c for name, c in pref_codes.items() if addr.startswith(name)), None)
+        if code:
+            grouped[code].append(x)
+        else:
+            unknown.append(x)
+
+    OUT.mkdir(parents=True, exist_ok=True)
+    for code, rows in grouped.items():
+        (OUT / f'{code}.json').write_text(
+            json.dumps(rows, ensure_ascii=False), encoding='utf-8'
+        )
+
+    if unknown:
+        (OUT / 'unknown.json').write_text(
+            json.dumps(unknown, ensure_ascii=False), encoding='utf-8'
+        )
+
+    (ROOT / 'data' / 'designation-index.json').write_text(
+        json.dumps(designation_rows, ensure_ascii=False), encoding='utf-8'
+    )
+
+    metadata = {
+        'updated_at': datetime.now(timezone.utc).astimezone().isoformat(timespec='minutes'),
+        'medical_data_as_of': asof,
+        'medical_aid_as_of': aid_asof,
+        'count': len(records),
+        'prefecture_counts': {code: len(rows) for code, rows in grouped.items()},
+        'unknown_prefecture_count': len(unknown),
+        'designation_coverage': coverage,
+        'designation_sources_audit': source_audits,
+        'designation_records_count': len(designation_rows),
+        'sources': {
+            'medical_information_network': MED_PAGE,
+            'medical_aid_online_eligibility': AID_PAGE,
+            'designation_registry': 'data/designation_sources.json'
+        },
+        'notice': 'オンライン資格確認への参加は生活保護法上の指定を意味しません。公式名簿と照合できない施設は未確認です。'
+    }
+    (ROOT / 'data' / 'metadata.json').write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2), encoding='utf-8'
+    )
+
+    print(f'Wrote {len(records)} facilities in {len(grouped)} prefecture files; unknown prefecture={len(unknown)}; aid list rows={aid_row_count}; medical release={asof}', flush=True)
+
 if __name__=='__main__': main()
