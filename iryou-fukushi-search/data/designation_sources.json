@@ -1,0 +1,113 @@
+{
+  "description": "自治体が公開する生活保護法指定医療機関名簿の取得元。自治体ごとに公開形式・管轄範囲が異なるため、確認できた公式ページのみ登録する。",
+  "sources": [
+    {
+      "id": "hokkaido-pref",
+      "authority": "北海道（札幌市・旭川市・函館市を除く）",
+      "prefecture": "北海道",
+      "page": "https://www.pref.hokkaido.lg.jp/hf/feg/hog/meibo.html",
+      "scope": "道所管区域",
+      "format": "xlsx/csv/pdf",
+      "note": "札幌市・旭川市・函館市は別管轄"
+    },
+    {
+      "id": "aichi-pref",
+      "authority": "愛知県（名古屋市等を除く）",
+      "prefecture": "愛知県",
+      "page": "https://www.pref.aichi.jp/soshiki/chiikifukushi/0000079799.html",
+      "scope": "県所管区域",
+      "format": "xlsx/pdf",
+      "note": "名古屋市、豊橋市、岡崎市、豊田市、一宮市を除く"
+    },
+    {
+      "id": "yokohama",
+      "authority": "横浜市",
+      "prefecture": "神奈川県",
+      "page": "https://www.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/seikatsu/seikatsuhogo/shiteiiryo.html",
+      "scope": "横浜市",
+      "format": "xlsx/pdf",
+      "note": "横浜市公開オープンデータ"
+    },
+    {
+      "id": "kyoto-city",
+      "authority": "京都市",
+      "prefecture": "京都府",
+      "page": "https://www.city.kyoto.lg.jp/hokenfukushi/page/0000246106.html",
+      "scope": "京都市",
+      "format": "xlsx/pdf",
+      "note": "医科・歯科・薬局別"
+    },
+    {
+      "id": "okinawa-pref",
+      "authority": "沖縄県（県所管区域）",
+      "prefecture": "沖縄県",
+      "page": "https://www.pref.okinawa.lg.jp/kyoiku/seikatufukushi/1007896/1007907.html",
+      "scope": "県所管区域",
+      "format": "xlsx/pdf",
+      "note": "指定状況の反映に遅れがある場合がある旨の注意書きあり"
+    },
+    {
+      "id": "hyogo-pref",
+      "authority": "兵庫県（神戸市等の独自管轄区域を除く）",
+      "prefecture": "兵庫県",
+      "page": "https://web.pref.hyogo.lg.jp/kf03/hw16_000000047.html",
+      "scope": "県所管区域",
+      "format": "xlsx",
+      "note": "医科・歯科・薬局・訪問看護のExcel。独自管轄市の範囲は別途確認が必要"
+    },
+    {
+      "id": "mie-pref",
+      "authority": "三重県（県所管区域）",
+      "prefecture": "三重県",
+      "page": "https://www.pref.mie.lg.jp/FUKUSHI/HP/000181682_00001.htm",
+      "scope": "県所管区域",
+      "format": "xlsx",
+      "note": "医科・歯科・薬局・訪問看護の一覧。市の管轄範囲は別途確認が必要"
+    },
+    {
+      "id": "fukuoka-city",
+      "authority": "福岡市",
+      "prefecture": "福岡県",
+      "page": "https://www.city.fukuoka.lg.jp/fukushi/hogo/netdetetsuduki/seikatuhogohou-iryou-kaigo/001_2_2.html",
+      "scope": "福岡市",
+      "format": "xlsx/pdf",
+      "note": "医科・歯科・薬局別のExcel一覧。定期更新"
+    },
+    {
+      "id": "toyama-pref",
+      "authority": "富山県（富山市を除く）",
+      "prefecture": "富山県",
+      "page": "https://www.pref.toyama.lg.jp/1200/kurashi/kenkou/fukushi/kj00018645.html",
+      "scope": "県所管区域",
+      "format": "xlsx",
+      "note": "富山市が指定したものは除外"
+    },
+    {
+      "id": "naha-city",
+      "authority": "那覇市",
+      "prefecture": "沖縄県",
+      "page": "https://www.city.naha.okinawa.jp/fukusi/shakaifukushi/1003447/1003452/1003453.html",
+      "scope": "那覇市",
+      "format": "xlsx",
+      "note": "医科・歯科・薬局・訪問看護を含む。沖縄県名簿との重複に注意"
+    },
+    {
+      "id": "ishikawa-pref",
+      "authority": "石川県（金沢市を除く）",
+      "prefecture": "石川県",
+      "page": "https://www.pref.ishikawa.lg.jp/kousei/20140430.html",
+      "scope": "県所管区域",
+      "format": "pdf",
+      "note": "公開形式はPDF。PDF表抽出で構造化できた行のみ照合対象とする。金沢市は別管轄"
+    },
+    {
+      "id": "hamamatsu-city",
+      "authority": "浜松市",
+      "prefecture": "静岡県",
+      "page": "https://www.city.hamamatsu.shizuoka.jp/fukushisomu/seiho/shitei.html",
+      "scope": "浜松市",
+      "format": "xlsx/pdf",
+      "note": "医科・歯科・薬局・訪問看護の市全体Excelあり。更新時点のずれに注意"
+    }
+  ]
+}

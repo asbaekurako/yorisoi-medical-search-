@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="全国の病院・診療所・歯科診療所・薬局を住所や診療科から検索。公的公開データの出典と確認状況を表示します。">
+<title>医療扶助対応 医療機関検索</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><div class="brand">よりそい医療検索</div><div class="tag">生活保護の医療扶助を利用する方の医療機関探しをサポート</div></div></header>
+<main class="wrap">
+<section class="intro"><h1>近くの医療機関を探す</h1><p>全国の病院・診療所・歯科診療所・薬局を検索できます。検索結果ごとに、取り込んだ自治体公式名簿と施設名・住所・医療機関コードをページ内で自動照合します。</p></section>
+<section class="search panel">
+<form id="searchForm">
+<label>住所・地名<input id="area" type="search" placeholder="例：熊本市東区小峯、東京都新宿区" required></label>
+<div class="fields"><label>施設の種類<select id="kind"><option value="all">すべて</option><option value="病院">病院</option><option value="診療所">診療所</option><option value="歯科診療所">歯科診療所</option><option value="薬局">薬局</option></select></label>
+<label>診療科<input id="dept" type="search" placeholder="例：内科、皮膚科、歯科"></label></div>
+<button type="submit">この条件で検索</button>
+</form>
+<div class="hint">検索対象は厚生労働省の全国医療情報データです。地名は都道府県・市区町村・町名などで入力してください。生活保護法上の指定状況は、自治体の公式名簿を取得できた範囲で自動照合します。</div>
+</section>
+<section class="notice"><strong>大切なお知らせ</strong><p>施設検索は全国を対象としますが、生活保護法上の指定状況の公式照合は自治体ごとの名簿公開状況に左右されます。全国すべての自治体の指定状況を確認できているわけではありません。「未確認」は「指定なし」を意味しません。また「医療扶助オンライン資格確認に参加」と「生活保護法上の指定医療機関」は別の情報です。受診前に福祉事務所で受診手続き・医療券等を確認してください。</p></section>
+<section id="status" class="status">データを読み込んでいます…</section>
+<section id="coverage" class="panel" aria-live="polite"><strong>自動照合状況</strong><p>データ読み込み後、ブラウザ内で公式名簿との照合結果を表示します。</p></section>
+<section id="results" class="results" aria-live="polite"></section>
+<section class="sources"><h2>データ出典・更新</h2><ul><li><a href="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iryou/newpage_43373.html" target="_blank" rel="noopener">厚生労働省：医療情報ネットのオープンデータ</a></li><li><a href="https://www.mhlw.go.jp/stf/newpage_25108.html" target="_blank" rel="noopener">厚生労働省：医療扶助オンライン資格確認参加医療機関・薬局リスト</a></li><li>自治体別の生活保護法指定医療機関名簿（取得元・対象範囲は検索データ内に記録）</li></ul><p id="updated">更新日：確認中</p><p>公的データの更新頻度は毎日ではありません。本サイトは毎日、登録済み公開元の更新を確認します。ブラウザ側の自動照合は取得済みデータに対して行います。</p></section>
+<footer>本サイトは厚生労働省・自治体の公式サイトではありません。掲載情報の正確性・最新性を保証するものではありません。</footer>
+</main><script src="app.js"></script>
+</body></html>
